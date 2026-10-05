@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Incidence Visualizer</title>
+    <!-- Tailwind CSS for modern responsive layout and UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        },
+                        consumer: {
+                            light: '#f87171',
+                            DEFAULT: '#ef4444',
+                            dark: '#dc2626',
+                            bg: 'rgba(239, 68, 68, 0.35)'
+                        },
+                        producer: {
+                            light: '#60a5fa',
+                            DEFAULT: '#3b82f6',
+                            dark: '#2563eb',
+                            bg: 'rgba(59, 130, 246, 0.35)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons for polished UI buttons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        input[type=range] {
+            accent-color: #0284c7;
+        }
+        .tooltip {
+            transition: opacity 0.15s ease-in-out;
+            pointer-events: none;
+        }
+        .graph-area {
+            transition: all 0.2s ease;
+        }
+        .graph-area:hover {
+            filter: brightness(1.1);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-full flex flex-col font-sans transition-colors duration-200">
+
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-500 text-white p-2.5 rounded-xl shadow-sm">
+                    <i class="fa-solid font-bold fa-chart-line text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Tax Incidence Visualizer</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Explore price elasticity and consumer vs. producer tax burden</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <button id="themeToggleBtn" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline"></i>
+                    <span class="hidden sm:inline text-xs font-medium">Theme</span>
+                </button>
+                <button id="resetBtn" class="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span class="text-xs font-medium">Reset</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN: SVG Graph Canvas (7 Cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-5 flex flex-col flex-1 relative overflow-hidden">
+                
+                <!-- SVG Header & Legend -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-2 pb-2 border-b border-slate-100 dark:border-slate-700/50">
+                    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-brand-500"></i> Market Equilibrium Graph
+                    </h2>
+                    
+                    <div class="flex flex-wrap items-center gap-3 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-sm bg-consumer dark:bg-consumer-dark inline-block opacity-80"></span>
+                            <span class="text-slate-600 dark:text-slate-300 font-medium">Consumer Burden</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-sm bg-producer dark:bg-producer-dark inline-block opacity-80"></span>
+                            <span class="text-slate-600 dark:text-slate-300 font-medium">Producer Burden</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative w-full aspect-[4/3] sm:aspect-[16/11] flex-1 flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/40 rounded-xl p-2 border border-slate-100 dark:border-slate-800">
+                    <svg id="marketGraph" class="w-full h-full select-none overflow-visible" viewBox="0 0 600 450">
+                        <defs>
+                            <linearGradient id="consumerGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#ef4444" stop-opacity="0.45"/>
+                                <stop offset="100%" stop-color="#ef4444" stop-opacity="0.25"/>
+                            </linearGradient>
+                            <linearGradient id="producerGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45"/>
+                                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.25"/>
+                            </linearGradient>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-startreverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" class="text-slate-400 dark:text-slate-500"/>
+                            </marker>
+                        </defs>
+
+                        <!-- Shaded Tax Burden Regions -->
+                        <g id="regionsGroup">
+                            <path id="consumerBurdenArea" class="graph-area opacity-90 stroke-consumer stroke-1 transition-all" fill="url(#consumerGrad)" data-tooltip="Consumer Tax Burden"/>
+                            <path id="producerBurdenArea" class="graph-area opacity-90 stroke-producer stroke-1 transition-all" fill="url(#producerGrad)" data-tooltip="Producer Tax Burden"/>
+                        </g>
+
+                        <!-- Dynamic Reference Guide Lines -->
+                        <g id="referenceLines" class="stroke-slate-400 dark:stroke-slate-500 stroke-1 stroke-dash-4">
+                            <line id="linePStar" x1="60" y1="0" x2="0" y2="0"/>
+                            <line id="lineQStar" x1="0" y1="390" x2="0" y2="0"/>
+                            <line id="linePc" x1="60" y1="0" x2="0" y2="0" class="stroke-consumer stroke-2"/>
+                            <line id="linePp" x1="60" y1="0" x2="0" y2="0" class="stroke-producer stroke-2"/>
+                            <line id="lineQt" x1="0" y1="390" x2="0" y2="0" class="stroke-slate-600 dark:stroke-slate-300 stroke-2"/>
+                        </g>
+
+                        <!-- Chart Axes -->
+                        <g class="stroke-slate-400 dark:stroke-slate-500 stroke-2">
+                            <line x1="60" y1="390" x2="570" y2="390" marker-end="url(#arrow)" />
+                            <line x1="60" y1="390" x2="60" y2="20" marker-end="url(#arrow)" />
+                        </g>
+
+                        <!-- Demand & Supply Line Curves -->
+                        <g id="curvesGroup" class="stroke-3 fill-none">
+                            <line id="demandCurve" class="stroke-red-500 dark:stroke-red-400 transition-all duration-75" stroke-linecap="round" />
+                            <line id="supplyOriginalCurve" class="stroke-blue-500 dark:stroke-blue-400 transition-all duration-75" stroke-linecap="round" />
+                            <line id="supplyTaxCurve" class="stroke-emerald-500 dark:stroke-emerald-400 stroke-dash-2 transition-all duration-75" stroke-linecap="round" />
+                        </g>
+
+                        <!-- Curve Text Labels -->
+                        <g id="curveLabels" class="text-xs font-bold select-none">
+                            <text id="labelDemand" fill="#ef4444" x="0" y="0">Demand</text>
+                            <text id="labelSupply" fill="#3b82f6" x="0" y="0">Supply</text>
+                            <text id="labelSupplyTax" fill="#10b981" x="0" y="0">Supply + Tax</text>
+                        </g>
+
+                        <!-- Key Intersection Points -->
+                        <g id="intersectionPoints">
+                            <circle id="pointEStar" r="5" class="fill-slate-700 dark:fill-slate-200 stroke-white dark:stroke-slate-800 stroke-2" />
+                            <circle id="pointEc" r="5" class="fill-consumer stroke-white dark:stroke-slate-800 stroke-2" />
+                            <circle id="pointEp" r="5" class="fill-producer stroke-white dark:stroke-slate-800 stroke-2" />
+                        </g>
+
+                        <!-- Axis Titles & Price/Quantity Indicators -->
+                        <g id="axisLabels" class="text-[11px] font-semibold fill-slate-600 dark:fill-slate-300">
+                            <text x="560" y="420" text-anchor="end" class="font-bold fill-slate-800 dark:fill-slate-100 text-xs">Quantity</text>
+                            <text x="50" y="25" text-anchor="end" class="font-bold fill-slate-800 dark:fill-slate-100 text-xs">Price</text>
+
+                            <text id="textPStar" x="50" y="0" text-anchor="end" dominant-baseline="middle">Original Price</text>
+                            <text id="textPc" x="50" y="0" text-anchor="end" dominant-baseline="middle" class="fill-consumer font-bold">New Price</text>
+                            <text id="textPp" x="50" y="0" text-anchor="end" dominant-baseline="middle" class="fill-producer font-bold">Net-of-tax Price</text>
+
+                            <text id="textQStar" x="0" y="412" text-anchor="middle">Original Q</text>
+                            <text id="textQt" x="0" y="412" text-anchor="middle" class="font-bold fill-slate-800 dark:fill-slate-100">New Q</text>
+                        </g>
+                    </svg>
+
+                    <!-- Hover Tooltip -->
+                    <div id="graphTooltip" class="tooltip absolute hidden bg-slate-900/90 text-white text-xs px-2.5 py-1.5 rounded-md shadow-lg backdrop-blur-sm z-20 whitespace-nowrap"></div>
+                </div>
+
+                <!-- Bottom Display Options -->
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 text-xs">
+                    <span class="font-semibold text-slate-500 dark:text-slate-400">Display Options:</span>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="toggleDottedLines" checked class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            <span class="text-slate-700 dark:text-slate-300">Show Guide Lines</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Economic Insight Summary Box -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-5">
+                <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-lightbulb text-amber-500"></i> Tax Incidence Analysis
+                </h3>
+                <p id="analysisText" class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Adjust the sliders to observe how relative elasticities affect who pays the tax.
+                </p>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Interactive Control Sliders & Statistics (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+            
+            <!-- Parameter Control Panel -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-5 flex flex-col gap-4">
+                <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
+                    <i class="fa-solid fa-sliders text-brand-500"></i> Elasticity & Tax Controls
+                </h2>
+
+                <!-- Demand Elasticity Control Block -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label for="elasticityDemand" class="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Elasticity of Demand
+                        </label>
+                        <span id="demandValText" class="text-brand-600 dark:text-brand-400 font-mono">1.0 — Unitary</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <label class="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap cursor-pointer select-none">
+                            <input type="checkbox" id="demandZeroToggle" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            <span>Perfectly Inelastic</span>
+                        </label>
+
+                        <input type="range" id="elasticityDemand" min="0.1" max="5.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer">
+
+                        <label class="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap cursor-pointer select-none">
+                            <input type="checkbox" id="demandInfToggle" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            <span>Perfectly Elastic</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+                        <span>0.1 — Inelastic</span>
+                        <span>5.0 — Elastic</span>
+                    </div>
+                </div>
+
+                <!-- Supply Elasticity Control Block -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label for="elasticitySupply" class="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Elasticity of Supply
+                        </label>
+                        <span id="supplyValText" class="text-brand-600 dark:text-brand-400 font-mono">1.0 — Unitary</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label class="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap cursor-pointer select-none">
+                            <input type="checkbox" id="supplyZeroToggle" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            <span>Perfectly Inelastic</span>
+                        </label>
+
+                        <input type="range" id="elasticitySupply" min="0.1" max="5.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer">
+
+                        <label class="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap cursor-pointer select-none">
+                            <input type="checkbox" id="supplyInfToggle" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            <span>Perfectly Elastic</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+                        <span>0.1 — Inelastic</span>
+                        <span>5.0 — Elastic</span>
+                    </div>
+                </div>
+
+                <!-- Tax Amount Slider -->
+                <div class="space-y-1 pt-1">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label for="taxAmount" class="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-receipt text-emerald-500"></i> Tax Amount per Unit
+                        </label>
+                        <span id="taxValText" class="text-emerald-600 dark:text-emerald-400 font-mono">$20.00</span>
+                    </div>
+                    <input type="range" id="taxAmount" min="5" max="50" step="1" value="20" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+                        <span>$5.00</span>
+                        <span>$50.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Numerical Summary Panel -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-5 space-y-4">
+                <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                    <span><i class="fa-solid fa-calculator text-brand-500"></i> Market Numerical Summary</span>
+                </h2>
+
+                <!-- Key Price Metrics Grid -->
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block">Original Price</span>
+                        <span id="statPStar" class="text-sm sm:text-base font-extrabold text-slate-700 dark:text-slate-200">$50.00</span>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-950/30 p-2.5 rounded-xl border border-red-100 dark:border-red-900/30">
+                        <span class="text-[10px] uppercase font-bold text-consumer block">New Price</span>
+                        <span id="statPc" class="text-sm sm:text-base font-extrabold text-consumer">$60.00</span>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-950/30 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                        <span class="text-[10px] uppercase font-bold text-producer block">Net-of-tax Price</span>
+                        <span id="statPp" class="text-sm sm:text-base font-extrabold text-producer">$40.00</span>
+                    </div>
+                </div>
+
+                <!-- Quantity Change Summary -->
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl text-xs">
+                    <span class="font-medium text-slate-600 dark:text-slate-300">Quantity Transacted:</span>
+                    <div class="flex items-center gap-2 font-sans">
+                        <span class="text-slate-500">Original Q: <strong id="statQStar" class="text-slate-700 dark:text-slate-200 font-mono">50.0</strong></span>
+                        <i class="fa-solid fa-arrow-right text-[10px] text-slate-400"></i>
+                        <span class="text-brand-600 dark:text-brand-400">New Q: <strong id="statQt" class="text-slate-900 dark:text-white font-mono">40.0</strong></span>
+                    </div>
+                </div>
+
+                <!-- Tax Burden Breakdown Bars & Ratio Values -->
+                <div class="space-y-2 pt-1">
+                    <div class="flex justify-between items-center text-xs font-semibold">
+                        <span class="text-slate-700 dark:text-slate-300">Tax Burden Ratio <span class="font-normal text-slate-500 text-[11px]">(Consumer : Producer)</span></span>
+                        <span id="statRatioBadge" class="bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-mono font-bold px-2 py-0.5 rounded border border-brand-200 dark:border-brand-700 text-xs">1 : 1</span>
+                    </div>
+
+                    <!-- Progress bar visualization -->
+                    <div class="w-full h-3.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex shadow-inner">
+                        <div id="barConsumer" class="bg-consumer h-full transition-all duration-300" style="width: 50%"></div>
+                        <div id="barProducer" class="bg-producer h-full transition-all duration-300" style="width: 50%"></div>
+                    </div>
+
+                    <!-- Detailed Amount & Ratio Breakdown -->
+                    <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
+                        <div class="bg-red-50/70 dark:bg-red-950/20 p-2 rounded-lg border border-red-100 dark:border-red-900/20">
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-consumer-dark dark:text-consumer-light">Consumer Burden:</span>
+                                <span id="statConsumerRatio" class="font-bold text-consumer font-mono">1</span>
+                            </div>
+                            <div id="statConsumerAmt" class="text-slate-600 dark:text-slate-400 font-mono text-right font-semibold">$400.00</div>
+                        </div>
+
+                        <div class="bg-blue-50/70 dark:bg-blue-950/20 p-2 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-producer-dark dark:text-producer-light">Producer Burden:</span>
+                                <span id="statProducerRatio" class="font-bold text-producer font-mono">1</span>
+                            </div>
+                            <div id="statProducerAmt" class="text-slate-600 dark:text-slate-400 font-mono text-right font-semibold">$400.00</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-0.5">
+                        <span id="statTaxRev" class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">Total tax revenue received by the government: $800.00</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // Graph dimensions and scaling factors
+        const GRAPH_CONFIG = {
+            width: 600,
+            height: 450,
+            originX: 60,
+            originY: 390,
+            maxX: 570,
+            minY: 30,
+            
+            baseP: 50,
+            baseQ: 50,
+            
+            scaleX: 4.8, // 1 unit Q = 4.8 px
+            scaleY: 3.2  // 1 unit P = 3.2 px
+        };
+
+        // Current application state
+        let state = {
+            ed: 1.0,           
+            es: 1.0,           
+            isEdZero: false,   
+            isEdInf: false,    
+            isEsZero: false,   
+            isEsInf: false,    
+            tax: 20,           
+            showGuideLines: true
+        };
+
+        // DOM Element Cache
+        const elements = {
+            elasticityDemand: document.getElementById('elasticityDemand'),
+            elasticitySupply: document.getElementById('elasticitySupply'),
+            demandZeroToggle: document.getElementById('demandZeroToggle'),
+            demandInfToggle: document.getElementById('demandInfToggle'),
+            supplyZeroToggle: document.getElementById('supplyZeroToggle'),
+            supplyInfToggle: document.getElementById('supplyInfToggle'),
+            taxAmount: document.getElementById('taxAmount'),
+            demandValText: document.getElementById('demandValText'),
+            supplyValText: document.getElementById('supplyValText'),
+            taxValText: document.getElementById('taxValText'),
+            toggleDottedLines: document.getElementById('toggleDottedLines'),
+            themeToggleBtn: document.getElementById('themeToggleBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+
+            demandCurve: document.getElementById('demandCurve'),
+            supplyOriginalCurve: document.getElementById('supplyOriginalCurve'),
+            supplyTaxCurve: document.getElementById('supplyTaxCurve'),
+            consumerBurdenArea: document.getElementById('consumerBurdenArea'),
+            producerBurdenArea: document.getElementById('producerBurdenArea'),
+
+            referenceLines: document.getElementById('referenceLines'),
+            linePStar: document.getElementById('linePStar'),
+            lineQStar: document.getElementById('lineQStar'),
+            linePc: document.getElementById('linePc'),
+            linePp: document.getElementById('linePp'),
+            lineQt: document.getElementById('lineQt'),
+
+            pointEStar: document.getElementById('pointEStar'),
+            pointEc: document.getElementById('pointEc'),
+            pointEp: document.getElementById('pointEp'),
+
+            labelDemand: document.getElementById('labelDemand'),
+            labelSupply: document.getElementById('labelSupply'),
+            labelSupplyTax: document.getElementById('labelSupplyTax'),
+            textPStar: document.getElementById('textPStar'),
+            textPc: document.getElementById('textPc'),
+            textPp: document.getElementById('textPp'),
+            textQStar: document.getElementById('textQStar'),
+            textQt: document.getElementById('textQt'),
+
+            statPStar: document.getElementById('statPStar'),
+            statPc: document.getElementById('statPc'),
+            statPp: document.getElementById('statPp'),
+            statQStar: document.getElementById('statQStar'),
+            statQt: document.getElementById('statQt'),
+            statTaxRev: document.getElementById('statTaxRev'),
+            statRatioBadge: document.getElementById('statRatioBadge'),
+            statConsumerRatio: document.getElementById('statConsumerRatio'),
+            statProducerRatio: document.getElementById('statProducerRatio'),
+            statConsumerAmt: document.getElementById('statConsumerAmt'),
+            statProducerAmt: document.getElementById('statProducerAmt'),
+            barConsumer: document.getElementById('barConsumer'),
+            barProducer: document.getElementById('barProducer'),
+            analysisText: document.getElementById('analysisText'),
+            tooltip: document.getElementById('graphTooltip')
+        };
+
+        function toSvgCoords(Q, P) {
+            const x = GRAPH_CONFIG.originX + (Q * GRAPH_CONFIG.scaleX);
+            const y = GRAPH_CONFIG.originY - (P * GRAPH_CONFIG.scaleY);
+            return { x, y };
+        }
+
+        function getLineEndpointsInBox(m, c) {
+            const pts = [];
+
+            // Q = 0
+            const p_q0 = c;
+            if (p_q0 >= 0 && p_q0 <= 100) pts.push({ Q: 0, P: p_q0 });
+
+            // Q = 100
+            const p_q100 = 100 * m + c;
+            if (p_q100 >= 0 && p_q100 <= 100) pts.push({ Q: 100, P: p_q100 });
+
+            // P = 0
+            if (Math.abs(m) > 1e-6) {
+                const q_p0 = -c / m;
+                if (q_p0 > 0 && q_p0 < 100) pts.push({ Q: q_p0, P: 0 });
+
+                // P = 100
+                const q_p100 = (100 - c) / m;
+                if (q_p100 > 0 && q_p100 < 100) pts.push({ Q: q_p100, P: 100 });
+            }
+
+            const unique = [];
+            for (let pt of pts) {
+                if (!unique.some(u => Math.abs(u.Q - pt.Q) < 1e-4 && Math.abs(u.P - pt.P) < 1e-4)) {
+                    unique.push(pt);
+                }
+            }
+
+            if (unique.length >= 2) {
+                unique.sort((a, b) => a.Q - b.Q);
+                return { p1: unique[0], p2: unique[1] };
+            }
+
+            return {
+                p1: { Q: 0, P: Math.max(0, Math.min(100, c)) },
+                p2: { Q: 100, P: Math.max(0, Math.min(100, 100 * m + c)) }
+            };
+        }
+
+        function calculateMarket() {
+            const isEdVert = state.isEdZero;
+            const isEdHoriz = state.isEdInf;
+            const isEsVert = state.isEsZero;
+            const isEsHoriz = state.isEsInf;
+
+            const slopeD = isEdVert ? Infinity : (isEdHoriz ? 0 : 1.0 / state.ed);
+            const slopeS = isEsVert ? Infinity : (isEsHoriz ? 0 : 1.0 / state.es);
+
+            const P_star = GRAPH_CONFIG.baseP;
+            const Q_star = GRAPH_CONFIG.baseQ;
+
+            let Qt, Pc, Pp;
+
+            if (isEdVert) {
+                Qt = Q_star;
+                Pc = P_star + state.tax;
+                Pp = P_star;
+            } else if (isEsVert) {
+                Qt = Q_star;
+                Pc = P_star;
+                Pp = P_star - state.tax;
+            } else if (isEdHoriz && isEsHoriz) {
+                Qt = Math.max(5, Q_star - state.tax);
+                Pc = P_star;
+                Pp = P_star - state.tax;
+            } else if (isEdHoriz) {
+                Pc = P_star;
+                Pp = P_star - state.tax;
+                Qt = Math.max(2, Q_star - (state.tax / slopeS));
+            } else if (isEsHoriz) {
+                Pc = P_star + state.tax;
+                Pp = P_star;
+                Qt = Math.max(2, Q_star - (state.tax / slopeD));
+            } else {
+                Qt = Math.max(2, Q_star - (state.tax / (slopeD + slopeS)));
+                Pc = P_star + (slopeD * (Q_star - Qt));
+                Pp = Pc - state.tax;
+            }
+
+            const consumerSharePerUnit = Pc - P_star;
+            const producerSharePerUnit = P_star - Pp;
+
+            const totalTaxRev = state.tax * Qt;
+            const consumerBurdenTotal = Math.max(0, consumerSharePerUnit * Qt);
+            const producerBurdenTotal = Math.max(0, producerSharePerUnit * Qt);
+
+            let consumerPct, producerPct;
+            if (isEdVert || isEsHoriz) {
+                consumerPct = 100;
+                producerPct = 0;
+            } else if (isEsVert || isEdHoriz) {
+                consumerPct = 0;
+                producerPct = 100;
+            } else {
+                consumerPct = Math.round((consumerSharePerUnit / state.tax) * 100);
+                producerPct = 100 - consumerPct;
+            }
+
+            const ratioInfo = calculateRatio(consumerSharePerUnit, producerSharePerUnit);
+
+            return {
+                slopeD, slopeS,
+                isEdVert, isEdHoriz, isEsVert, isEsHoriz,
+                P_star, Q_star, Qt, Pc, Pp,
+                consumerSharePerUnit, producerSharePerUnit,
+                totalTaxRev, consumerBurdenTotal, producerBurdenTotal,
+                consumerPct, producerPct,
+                ratioInfo
+            };
+        }
+
+        function calculateRatio(cShare, pShare) {
+            if (cShare <= 0.001) return { ratioStr: '0 : 1', cPart: '0', pPart: '1' };
+            if (pShare <= 0.001) return { ratioStr: '1 : 0', cPart: '1', pPart: '0' };
+
+            const ratio = cShare / pShare;
+            let cPart, pPart;
+
+            if (Math.abs(ratio - 1) < 0.02) {
+                cPart = '1';
+                pPart = '1';
+            } else if (ratio > 1) {
+                const rounded = Math.round(ratio * 10) / 10;
+                cPart = Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1);
+                pPart = '1';
+            } else {
+                const invRatio = 1 / ratio;
+                const rounded = Math.round(invRatio * 10) / 10;
+                cPart = '1';
+                pPart = Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1);
+            }
+
+            return {
+                ratioStr: `${cPart} : ${pPart}`,
+                cPart,
+                pPart
+            };
+        }
+
+        function render() {
+            const m = calculateMarket();
+
+            // 1. Demand Curve
+            let ptD1, ptD2;
+            if (m.isEdVert) {
+                ptD1 = toSvgCoords(m.Q_star, 100);
+                ptD2 = toSvgCoords(m.Q_star, 0);
+            } else if (m.isEdHoriz) {
+                ptD1 = toSvgCoords(0, m.P_star);
+                ptD2 = toSvgCoords(100, m.P_star);
+            } else {
+                const c_d = m.P_star + (m.slopeD * m.Q_star);
+                const pts = getLineEndpointsInBox(-m.slopeD, c_d);
+                ptD1 = toSvgCoords(pts.p1.Q, pts.p1.P);
+                ptD2 = toSvgCoords(pts.p2.Q, pts.p2.P);
+            }
+
+            elements.demandCurve.setAttribute('x1', ptD1.x);
+            elements.demandCurve.setAttribute('y1', ptD1.y);
+            elements.demandCurve.setAttribute('x2', ptD2.x);
+            elements.demandCurve.setAttribute('y2', ptD2.y);
+
+            // 2. Original Supply Curve
+            let ptS1, ptS2;
+            let c_s = 0;
+            if (m.isEsVert) {
+                ptS1 = toSvgCoords(m.Q_star, 0);
+                ptS2 = toSvgCoords(m.Q_star, 100);
+            } else if (m.isEsHoriz) {
+                ptS1 = toSvgCoords(0, m.P_star);
+                ptS2 = toSvgCoords(100, m.P_star);
+            } else {
+                c_s = m.P_star - (m.slopeS * m.Q_star);
+                const ptsS = getLineEndpointsInBox(m.slopeS, c_s);
+                ptS1 = toSvgCoords(ptsS.p1.Q, ptsS.p1.P);
+                ptS2 = toSvgCoords(ptsS.p2.Q, ptsS.p2.P);
+            }
+
+            elements.supplyOriginalCurve.setAttribute('x1', ptS1.x);
+            elements.supplyOriginalCurve.setAttribute('y1', ptS1.y);
+            elements.supplyOriginalCurve.setAttribute('x2', ptS2.x);
+            elements.supplyOriginalCurve.setAttribute('y2', ptS2.y);
+
+            // 3. Parallel Post-Tax Supply Curve
+            let ptSTax1, ptSTax2;
+            if (m.isEsVert) {
+                ptSTax1 = toSvgCoords(m.Q_star, 0);
+                ptSTax2 = toSvgCoords(m.Q_star, 100);
+            } else if (m.isEsHoriz) {
+                ptSTax1 = toSvgCoords(0, m.P_star + state.tax);
+                ptSTax2 = toSvgCoords(100, m.P_star + state.tax);
+            } else {
+                const c_s_tax = c_s + state.tax;
+                const ptsSTax = getLineEndpointsInBox(m.slopeS, c_s_tax);
+                ptSTax1 = toSvgCoords(ptsSTax.p1.Q, ptsSTax.p1.P);
+                ptSTax2 = toSvgCoords(ptsSTax.p2.Q, ptsSTax.p2.P);
+            }
+
+            elements.supplyTaxCurve.setAttribute('x1', ptSTax1.x);
+            elements.supplyTaxCurve.setAttribute('y1', ptSTax1.y);
+            elements.supplyTaxCurve.setAttribute('x2', ptSTax2.x);
+            elements.supplyTaxCurve.setAttribute('y2', ptSTax2.y);
+
+            // Point Coordinates
+            const posEStar = toSvgCoords(m.Q_star, m.P_star);
+            const posEc = toSvgCoords(m.Qt, m.Pc);
+            const posEp = toSvgCoords(m.Qt, m.Pp);
+            const posQt_PStar = toSvgCoords(m.Qt, m.P_star);
+            const posQ0_Pc = toSvgCoords(0, m.Pc);
+            const posQ0_PStar = toSvgCoords(0, m.P_star);
+            const posQ0_Pp = toSvgCoords(0, m.Pp);
+
+            // Render Point Elements cleanly
+            elements.pointEStar.setAttribute('cx', posEStar.x);
+            elements.pointEStar.setAttribute('cy', posEStar.y);
+
+            if (Math.abs(posEc.y - posEStar.y) < 1 && Math.abs(posEc.x - posEStar.x) < 1) {
+                elements.pointEc.style.display = 'none';
+            } else {
+                elements.pointEc.style.display = 'block';
+                elements.pointEc.setAttribute('cx', posEc.x);
+                elements.pointEc.setAttribute('cy', posEc.y);
+            }
+
+            if (Math.abs(posEp.y - posEStar.y) < 1 && Math.abs(posEp.x - posEStar.x) < 1) {
+                elements.pointEp.style.display = 'none';
+            } else {
+                elements.pointEp.style.display = 'block';
+                elements.pointEp.setAttribute('cx', posEp.x);
+                elements.pointEp.setAttribute('cy', posEp.y);
+            }
+
+            // Shaded Regions (Hide zero-height flat shapes)
+            if (Math.abs(m.Pc - m.P_star) < 0.1) {
+                elements.consumerBurdenArea.style.display = 'none';
+            } else {
+                elements.consumerBurdenArea.style.display = 'block';
+                const pathConsumer = `M ${posQ0_Pc.x} ${posQ0_Pc.y} L ${posEc.x} ${posEc.y} L ${posQt_PStar.x} ${posQt_PStar.y} L ${posQ0_PStar.x} ${posQ0_PStar.y} Z`;
+                elements.consumerBurdenArea.setAttribute('d', pathConsumer);
+            }
+
+            if (Math.abs(m.P_star - m.Pp) < 0.1) {
+                elements.producerBurdenArea.style.display = 'none';
+            } else {
+                elements.producerBurdenArea.style.display = 'block';
+                const pathProducer = `M ${posQ0_PStar.x} ${posQ0_PStar.y} L ${posQt_PStar.x} ${posQt_PStar.y} L ${posEp.x} ${posEp.y} L ${posQ0_Pp.x} ${posQ0_Pp.y} Z`;
+                elements.producerBurdenArea.setAttribute('d', pathProducer);
+            }
+
+            // Reference Lines Collision Handling
+            if (state.showGuideLines) {
+                elements.referenceLines.style.display = 'block';
+
+                elements.linePStar.setAttribute('x1', GRAPH_CONFIG.originX);
+                elements.linePStar.setAttribute('y1', posEStar.y);
+                elements.linePStar.setAttribute('x2', posEStar.x);
+                elements.linePStar.setAttribute('y2', posEStar.y);
+
+                elements.lineQStar.setAttribute('x1', posEStar.x);
+                elements.lineQStar.setAttribute('y1', GRAPH_CONFIG.originY);
+                elements.lineQStar.setAttribute('x2', posEStar.x);
+                elements.lineQStar.setAttribute('y2', posEStar.y);
+
+                if (Math.abs(posEc.y - posEStar.y) < 1) {
+                    elements.linePc.style.display = 'none';
+                } else {
+                    elements.linePc.style.display = 'block';
+                    elements.linePc.setAttribute('x1', GRAPH_CONFIG.originX);
+                    elements.linePc.setAttribute('y1', posEc.y);
+                    elements.linePc.setAttribute('x2', posEc.x);
+                    elements.linePc.setAttribute('y2', posEc.y);
+                }
+
+                if (Math.abs(posEp.y - posEStar.y) < 1) {
+                    elements.linePp.style.display = 'none';
+                } else {
+                    elements.linePp.style.display = 'block';
+                    elements.linePp.setAttribute('x1', GRAPH_CONFIG.originX);
+                    elements.linePp.setAttribute('y1', posEp.y);
+                    elements.linePp.setAttribute('x2', posEp.x);
+                    elements.linePp.setAttribute('y2', posEp.y);
+                }
+
+                if (Math.abs(posEc.x - posEStar.x) < 1) {
+                    elements.lineQt.style.display = 'none';
+                } else {
+                    elements.lineQt.style.display = 'block';
+                    elements.lineQt.setAttribute('x1', posEc.x);
+                    elements.lineQt.setAttribute('y1', GRAPH_CONFIG.originY);
+                    elements.lineQt.setAttribute('x2', posEc.x);
+                    elements.lineQt.setAttribute('y2', Math.min(posEc.y, posEp.y));
+                }
+            } else {
+                elements.referenceLines.style.display = 'none';
+            }
+
+            // 1. Y-AXIS PRICE LABELS COLLISION AVOIDANCE
+            const y_Pc = posEc.y;
+            const y_PStar = posEStar.y;
+            const y_Pp = posEp.y;
+
+            const pcEqualsPStar = Math.abs(y_Pc - y_PStar) < 2;
+            const ppEqualsPStar = Math.abs(y_Pp - y_PStar) < 2;
+
+            if (pcEqualsPStar && ppEqualsPStar) {
+                elements.textPc.textContent = "New / Orig / Net Price";
+                elements.textPc.setAttribute('y', y_PStar);
+                elements.textPc.style.display = 'block';
+                elements.textPStar.style.display = 'none';
+                elements.textPp.style.display = 'none';
+            } else if (pcEqualsPStar) {
+                elements.textPc.textContent = "New & Orig Price";
+                elements.textPc.setAttribute('y', y_PStar);
+                elements.textPc.style.display = 'block';
+                elements.textPStar.style.display = 'none';
+                
+                elements.textPp.textContent = "Net-of-tax Price";
+                elements.textPp.setAttribute('y', y_Pp);
+                elements.textPp.style.display = 'block';
+            } else if (ppEqualsPStar) {
+                elements.textPp.textContent = "Net & Orig Price";
+                elements.textPp.setAttribute('y', y_PStar);
+                elements.textPp.style.display = 'block';
+                elements.textPStar.style.display = 'none';
+
+                elements.textPc.textContent = "New Price";
+                elements.textPc.setAttribute('y', y_Pc);
+                elements.textPc.style.display = 'block';
+            } else {
+                let renderY_Pc = y_Pc;
+                let renderY_PStar = y_PStar;
+                let renderY_Pp = y_Pp;
+
+                const MIN_GAP = 14;
+                if (renderY_PStar - renderY_Pc < MIN_GAP) {
+                    const shift = (MIN_GAP - (renderY_PStar - renderY_Pc)) / 2;
+                    renderY_Pc -= shift;
+                    renderY_PStar += shift;
+                }
+                if (renderY_Pp - renderY_PStar < MIN_GAP) {
+                    const shift = (MIN_GAP - (renderY_Pp - renderY_PStar)) / 2;
+                    renderY_PStar -= shift;
+                    renderY_Pp += shift;
+                }
+
+                elements.textPc.textContent = "New Price";
+                elements.textPc.setAttribute('y', renderY_Pc);
+                elements.textPc.style.display = 'block';
+
+                elements.textPStar.textContent = "Original Price";
+                elements.textPStar.setAttribute('y', renderY_PStar);
+                elements.textPStar.style.display = 'block';
+
+                elements.textPp.textContent = "Net-of-tax Price";
+                elements.textPp.setAttribute('y', renderY_Pp);
+                elements.textPp.style.display = 'block';
+            }
+
+            // 2. X-AXIS QUANTITY LABELS COLLISION AVOIDANCE
+            const x_QStar = posEStar.x;
+            const x_Qt = posEc.x;
+
+            if (Math.abs(x_Qt - x_QStar) < 2) {
+                elements.textQt.textContent = "Original & New Q";
+                elements.textQt.setAttribute('x', x_QStar);
+                elements.textQt.setAttribute('y', 412);
+                elements.textQt.style.display = 'block';
+                elements.textQStar.style.display = 'none';
+            } else if (Math.abs(x_Qt - x_QStar) < 55) {
+                elements.textQStar.textContent = "Original Q";
+                elements.textQStar.setAttribute('x', x_QStar);
+                elements.textQStar.setAttribute('y', 412);
+                elements.textQStar.style.display = 'block';
+
+                elements.textQt.textContent = "New Q";
+                elements.textQt.setAttribute('x', x_Qt);
+                elements.textQt.setAttribute('y', 426); // Stagger downwards
+                elements.textQt.style.display = 'block';
+            } else {
+                elements.textQStar.textContent = "Original Q";
+                elements.textQStar.setAttribute('x', x_QStar);
+                elements.textQStar.setAttribute('y', 412);
+                elements.textQStar.style.display = 'block';
+
+                elements.textQt.textContent = "New Q";
+                elements.textQt.setAttribute('x', x_Qt);
+                elements.textQt.setAttribute('y', 412);
+                elements.textQt.style.display = 'block';
+            }
+
+            // 3. CURVE LABELS POSITIONING
+            if (m.isEdVert) {
+                elements.labelDemand.setAttribute('x', posEStar.x + 8);
+                elements.labelDemand.setAttribute('y', GRAPH_CONFIG.minY + 25);
+            } else if (m.isEdHoriz) {
+                elements.labelDemand.setAttribute('x', GRAPH_CONFIG.maxX - 65);
+                elements.labelDemand.setAttribute('y', posEStar.y - 8);
+            } else {
+                let lx = ptD2.x - 20;
+                let ly = ptD2.y + 18;
+                if (ly > GRAPH_CONFIG.originY - 10) ly = GRAPH_CONFIG.originY - 10;
+                if (lx > GRAPH_CONFIG.maxX - 20) lx = GRAPH_CONFIG.maxX - 20;
+                elements.labelDemand.setAttribute('x', Math.max(70, lx));
+                elements.labelDemand.setAttribute('y', ly);
+            }
+
+            if (m.isEsVert) {
+                elements.labelSupply.setAttribute('x', posEStar.x - 55);
+                elements.labelSupply.setAttribute('y', GRAPH_CONFIG.minY + 25);
+            } else if (m.isEsHoriz) {
+                elements.labelSupply.setAttribute('x', GRAPH_CONFIG.maxX - 60);
+                elements.labelSupply.setAttribute('y', posEStar.y + 16);
+            } else {
+                let lx = ptS2.x - 20;
+                let ly = ptS2.y - 10;
+                if (lx > GRAPH_CONFIG.maxX - 20) lx = GRAPH_CONFIG.maxX - 20;
+                if (ly < GRAPH_CONFIG.minY + 15) ly = GRAPH_CONFIG.minY + 15;
+                elements.labelSupply.setAttribute('x', lx);
+                elements.labelSupply.setAttribute('y', ly);
+            }
+
+            if (m.isEsVert) {
+                elements.labelSupplyTax.setAttribute('x', posEStar.x + 8);
+                elements.labelSupplyTax.setAttribute('y', GRAPH_CONFIG.minY + 45);
+            } else if (m.isEsHoriz) {
+                const posTaxY = toSvgCoords(m.Q_star, m.P_star + state.tax).y;
+                elements.labelSupplyTax.setAttribute('x', GRAPH_CONFIG.maxX - 80);
+                elements.labelSupplyTax.setAttribute('y', posTaxY - 8);
+            } else {
+                let lx = ptSTax2.x - 45;
+                let ly = ptSTax2.y - 10;
+                if (lx > GRAPH_CONFIG.maxX - 45) lx = GRAPH_CONFIG.maxX - 45;
+                if (ly < GRAPH_CONFIG.minY + 15) ly = GRAPH_CONFIG.minY + 15;
+                elements.labelSupplyTax.setAttribute('x', lx);
+                elements.labelSupplyTax.setAttribute('y', ly);
+            }
+
+            // Numerical Panel Text Updates
+            elements.statPStar.textContent = `$${m.P_star.toFixed(2)}`;
+            elements.statPc.textContent = `$${m.Pc.toFixed(2)}`;
+            elements.statPp.textContent = `$${m.Pp.toFixed(2)}`;
+            elements.statQStar.textContent = m.Q_star.toFixed(1);
+            elements.statQt.textContent = m.Qt.toFixed(1);
+
+            elements.statTaxRev.textContent = `Total tax revenue received by the government: $${m.totalTaxRev.toFixed(2)}`;
+            elements.statRatioBadge.textContent = m.ratioInfo.ratioStr;
+            elements.statConsumerRatio.textContent = m.ratioInfo.cPart;
+            elements.statProducerRatio.textContent = m.ratioInfo.pPart;
+            elements.statConsumerAmt.textContent = `$${m.consumerBurdenTotal.toFixed(2)}`;
+            elements.statProducerAmt.textContent = `$${m.producerBurdenTotal.toFixed(2)}`;
+
+            elements.barConsumer.style.width = `${m.consumerPct}%`;
+            elements.barProducer.style.width = `${m.producerPct}%`;
+
+            // Dynamic Economic Analysis Generation
+            updateAnalysisText(m);
+        }
+
+        function updateAnalysisText(m) {
+            let text = "";
+
+            if (m.isEdVert) {
+                text = `<strong>Perfectly Inelastic Demand:</strong> Consumers bear 100% of the tax burden because they continue purchasing the same quantity regardless of price changes. The tax burden ratio is <strong>1 : 0</strong>. The New Price increases by the full $${state.tax.toFixed(2)} tax, while the Net-of-tax Price remains $${m.P_star.toFixed(2)}.`;
+            } else if (m.isEdHoriz) {
+                text = `<strong>Perfectly Elastic Demand:</strong> Producers bear 100% of the tax burden because consumers will not accept any price above $${m.P_star.toFixed(2)}. The tax burden ratio is <strong>0 : 1</strong>. The New Price remains $${m.P_star.toFixed(2)}, while the Net-of-tax Price falls to $${m.Pp.toFixed(2)}.`;
+            } else if (m.isEsVert) {
+                text = `<strong>Perfectly Inelastic Supply:</strong> Producers bear 100% of the tax burden because supply cannot adjust. The tax burden ratio is <strong>0 : 1</strong>. The New Price remains $${m.P_star.toFixed(2)}, while the Net-of-tax Price falls to $${m.Pp.toFixed(2)}.`;
+            } else if (m.isEsHoriz) {
+                text = `<strong>Perfectly Elastic Supply:</strong> Consumers bear 100% of the tax burden because producers require a fixed net price to supply the market. The tax burden ratio is <strong>1 : 0</strong>. The New Price increases by the full tax to $${m.Pc.toFixed(2)}.`;
+            } else if (Math.abs(state.ed - state.es) < 0.05) {
+                text = `Because Demand and Supply have equal elasticities, the tax burden is split equally (<strong>1 : 1 ratio</strong>). Consumers pay a New Price of $${m.Pc.toFixed(2)} (+$${m.consumerSharePerUnit.toFixed(2)}), and producers receive a Net-of-tax Price of $${m.Pp.toFixed(2)} (-$${m.producerSharePerUnit.toFixed(2)}).`;
+            } else if (state.ed < state.es) {
+                text = `<strong>Demand is less elastic than Supply:</strong> Consumers carry a larger tax burden (<strong>${m.ratioInfo.ratioStr} ratio</strong>) because buyers are less responsive to price changes than sellers. The New Price rises to $${m.Pc.toFixed(2)}.`;
+            } else {
+                text = `<strong>Supply is less elastic than Demand:</strong> Producers carry a larger tax burden (<strong>${m.ratioInfo.ratioStr} ratio</strong>) because sellers are less responsive to price changes than buyers. The Net-of-tax Price falls to $${m.Pp.toFixed(2)}.`;
+            }
+
+            elements.analysisText.innerHTML = text;
+        }
+
+        function setupEventListeners() {
+            // Demand Slider
+            elements.elasticityDemand.addEventListener('input', (e) => {
+                state.ed = parseFloat(e.target.value);
+                state.isEdZero = false;
+                state.isEdInf = false;
+                elements.demandZeroToggle.checked = false;
+                elements.demandInfToggle.checked = false;
+                elements.demandValText.textContent = `${state.ed.toFixed(1)}`;
+                render();
+            });
+
+            // Demand Inelastic Checkbox
+            elements.demandZeroToggle.addEventListener('change', (e) => {
+                state.isEdZero = e.target.checked;
+                if (state.isEdZero) {
+                    state.isEdInf = false;
+                    elements.demandInfToggle.checked = false;
+                    elements.demandValText.textContent = `0.0 — Perfectly Inelastic`;
+                } else {
+                    elements.demandValText.textContent = `${state.ed.toFixed(1)}`;
+                }
+                render();
+            });
+
+            // Demand Elastic Checkbox
+            elements.demandInfToggle.addEventListener('change', (e) => {
+                state.isEdInf = e.target.checked;
+                if (state.isEdInf) {
+                    state.isEdZero = false;
+                    elements.demandZeroToggle.checked = false;
+                    elements.demandValText.textContent = `∞ — Perfectly Elastic`;
+                } else {
+                    elements.demandValText.textContent = `${state.ed.toFixed(1)}`;
+                }
+                render();
+            });
+
+            // Supply Slider
+            elements.elasticitySupply.addEventListener('input', (e) => {
+                state.es = parseFloat(e.target.value);
+                state.isEsZero = false;
+                state.isEsInf = false;
+                elements.supplyZeroToggle.checked = false;
+                elements.supplyInfToggle.checked = false;
+                elements.supplyValText.textContent = `${state.es.toFixed(1)}`;
+                render();
+            });
+
+            // Supply Inelastic Checkbox
+            elements.supplyZeroToggle.addEventListener('change', (e) => {
+                state.isEsZero = e.target.checked;
+                if (state.isEsZero) {
+                    state.isEsInf = false;
+                    elements.supplyInfToggle.checked = false;
+                    elements.supplyValText.textContent = `0.0 — Perfectly Inelastic`;
+                } else {
+                    elements.supplyValText.textContent = `${state.es.toFixed(1)}`;
+                }
+                render();
+            });
+
+            // Supply Elastic Checkbox
+            elements.supplyInfToggle.addEventListener('change', (e) => {
+                state.isEsInf = e.target.checked;
+                if (state.isEsInf) {
+                    state.isEsZero = false;
+                    elements.supplyZeroToggle.checked = false;
+                    elements.supplyValText.textContent = `∞ — Perfectly Elastic`;
+                } else {
+                    elements.supplyValText.textContent = `${state.es.toFixed(1)}`;
+                }
+                render();
+            });
+
+            // Tax Slider
+            elements.taxAmount.addEventListener('input', (e) => {
+                state.tax = parseFloat(e.target.value);
+                elements.taxValText.textContent = `$${state.tax.toFixed(2)}`;
+                render();
+            });
+
+            // Toggle Reference Guide Lines
+            elements.toggleDottedLines.addEventListener('change', (e) => {
+                state.showGuideLines = e.target.checked;
+                render();
+            });
+
+            // Theme Toggle
+            elements.themeToggleBtn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+            });
+
+            // Reset Button
+            elements.resetBtn.addEventListener('click', () => {
+                state = {
+                    ed: 1.0,
+                    es: 1.0,
+                    isEdZero: false,
+                    isEdInf: false,
+                    isEsZero: false,
+                    isEsInf: false,
+                    tax: 20,
+                    showGuideLines: true
+                };
+
+                elements.elasticityDemand.value = 1.0;
+                elements.elasticitySupply.value = 1.0;
+                elements.taxAmount.value = 20;
+                elements.demandZeroToggle.checked = false;
+                elements.demandInfToggle.checked = false;
+                elements.supplyZeroToggle.checked = false;
+                elements.supplyInfToggle.checked = false;
+                elements.toggleDottedLines.checked = true;
+
+                elements.demandValText.textContent = "1.0 — Unitary";
+                elements.supplyValText.textContent = "1.0 — Unitary";
+                elements.taxValText.textContent = "$20.00";
+
+                render();
+            });
+
+            // Graph Region Tooltips
+            const tooltip = elements.tooltip;
+            document.querySelectorAll('.graph-area').forEach(area => {
+                area.addEventListener('mousemove', (e) => {
+                    const text = area.getAttribute('data-tooltip');
+                    tooltip.textContent = text;
+                    tooltip.classList.remove('hidden');
+                    
+                    const rect = elements.marketGraph.getBoundingClientRect();
+                    tooltip.style.left = `${e.clientX - rect.left + 10}px`;
+                    tooltip.style.top = `${e.clientY - rect.top - 25}px`;
+                });
+
+                area.addEventListener('mouseleave', () => {
+                    tooltip.classList.add('hidden');
+                });
+            });
+        }
+
+        // Initialize application on load
+        window.onload = function() {
+            setupEventListeners();
+            render();
+        };
+    </script>
+</body>
+</html>
